@@ -1,5 +1,7 @@
 # REPLPlugin
 
+![REPL preview](https://raw.githubusercontent.com/denikson/REPLPlugin/master/img/example.png)
+
 A basic REPL (read-evaluate-print loop) for Unity games. Uses BepInEx to sideload itself into the game.
 
 ## Features
