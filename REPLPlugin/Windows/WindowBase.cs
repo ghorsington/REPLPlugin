@@ -5,12 +5,9 @@ namespace REPLPlugin.Windows
 {
     public abstract class WindowBase
     {
+        public Rect windowRect;
         private bool isResizing;
-        protected Rect windowRect;
         private Rect resizeStart;
-        public int ID { get; }
-        public Vector2 MinSize { get; set; }
-        public string Title { get; set; }
 
         protected WindowBase(int id, string title)
         {
@@ -20,20 +17,37 @@ namespace REPLPlugin.Windows
             windowRect = new Rect(0, 0, MinSize.x, MinSize.y);
         }
 
+        public bool Draggable { get; set; } = true;
+        public bool Hidden { get; set; } = false;
+        public int ID { get; }
+        public Vector2 MinSize { get; set; }
+        public bool Resizable { get; set; } = true;
+        public string Title { get; set; }
+
         public void Show()
         {
-            var rect = GUI.Window(0, windowRect, Render, Title);
+            if (Hidden)
+                return;
+
+            var rect = GUI.Window(ID, windowRect, Render, Title, GUI.skin.box);
             windowRect.x = Mathf.Max(rect.x, 0);
             windowRect.y = Mathf.Max(rect.y, 0);
+            OnGUI();
         }
+
+        protected abstract void RenderWindow();
+
+        protected virtual void OnGUI() { }
 
         private void Render(int windowID)
         {
-            GUI.DragWindow(new Rect(0, 0, windowRect.width, 20));
-            OnGUI();
-            windowRect = GUIUtil.ResizeButton(windowRect, MinSize, ref isResizing, ref resizeStart);
-        }
+            if (Draggable)
+                GUI.DragWindow(new Rect(0, 0, windowRect.width, 20));
 
-        protected abstract void OnGUI();
+            RenderWindow();
+
+            if (Resizable)
+                windowRect = GUIUtil.ResizeButton(windowRect, MinSize, ref isResizing, ref resizeStart);
+        }
     }
 }

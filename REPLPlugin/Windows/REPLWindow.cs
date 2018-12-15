@@ -1,37 +1,51 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using BepInEx.Logging;
 using REPLPlugin.MCS;
 using UnityEngine;
-using Logger = BepInEx.Logger;
 
 namespace REPLPlugin.Windows
 {
     public class REPLWindow : WindowBase
     {
         private const int HISTORY_LIMIT = 50;
+        private const int MARGIN_BOTTOM = 40;
+        private const int MARGIN_X = 4;
+        private const float MIN_HEIGHT = 400f;
+        private const float MIN_WIDTH = 400f;
+
+        private const int SUGGESTIONS_WIDTH = 200;
         private readonly ScriptEvaluator evaluator;
+        private readonly List<string> history = new List<string>();
+        private int historyPosition;
         private string inputField = "";
-        private readonly StringWriter logger;
+        private string prevInputField = "";
         private readonly StringBuilder sb = new StringBuilder();
         private Vector2 scrollPosition = Vector2.zero;
-        private List<string> history = new List<string>();
-        private int historyPosition = 0;
+
+        private readonly SuggestionsWindow suggestionsWindow;
 
         public REPLWindow(int id) : base(id, "Unity REPL")
         {
-            logger = new StringWriter(sb);
-            evaluator = new ScriptEvaluator(logger);
+            evaluator = new ScriptEvaluator(new StringWriter(sb));
+            suggestionsWindow = new SuggestionsWindow(1010);
+            suggestionsWindow.SuggestionAccept += AcceptSuggestion;
+            MinSize = new Vector2(MIN_WIDTH, MIN_HEIGHT);
+            windowRect.x = SUGGESTIONS_WIDTH;
+            windowRect.width = MIN_WIDTH;
+            windowRect.height = MIN_HEIGHT;
         }
 
-        protected override void OnGUI()
+        protected override void RenderWindow()
         {
-            var layoutRect = new Rect(4, 20, windowRect.width - 8, windowRect.height - 40);
+            var layoutRect = new Rect(MARGIN_X, 20, windowRect.width - MARGIN_X * 2, windowRect.height - MARGIN_BOTTOM);
             GUILayout.BeginArea(layoutRect);
             {
                 GUILayout.BeginVertical();
                 {
+                    if (GUILayout.Button("Clear"))
+                        sb.Length = 0;
                     scrollPosition = GUILayout.BeginScrollView(scrollPosition);
                     {
                         GUILayout.TextArea(sb.ToString(), GUILayout.ExpandHeight(true));
@@ -39,6 +53,7 @@ namespace REPLPlugin.Windows
                     GUILayout.EndScrollView();
 
                     GUI.SetNextControlName("replInput");
+                    prevInputField = inputField;
                     inputField = GUILayout.TextField(inputField);
                 }
                 GUILayout.EndVertical();
@@ -48,11 +63,31 @@ namespace REPLPlugin.Windows
             CheckReplInput();
         }
 
+        protected override void OnGUI()
+        {
+            suggestionsWindow.windowRect = new Rect(windowRect.x - SUGGESTIONS_WIDTH, windowRect.y, SUGGESTIONS_WIDTH, windowRect.height);
+            suggestionsWindow.Show();
+        }
+
+        private void AcceptSuggestion(string suggestion)
+        {
+            inputField += suggestion;
+            suggestionsWindow.Suggestions = null;
+        }
+
         private object Evaluate(string str)
         {
-            object ret = typeof(void);
+            object ret = VoidType.Value;
             evaluator.Compile(str, out var compiled);
-            compiled?.Invoke(ref ret);
+            try
+            {
+                compiled?.Invoke(ref ret);
+            }
+            catch (Exception e)
+            {
+                sb.AppendLine(e.ToString());
+            }
+
             return ret;
         }
 
@@ -68,11 +103,15 @@ namespace REPLPlugin.Windows
 
         private void FetchSuggestions()
         {
-            var completions = evaluator.GetCompletions(inputField, out var prefix);
-            Logger.Log(LogLevel.Message, $"Available completions (with prefix {prefix}):");
-            foreach (var completion in completions)
+            try
             {
-                Logger.Log(LogLevel.Message, completion);
+                suggestionsWindow.Suggestions = evaluator.GetCompletions(inputField, out string prefix);
+                suggestionsWindow.Prefix = prefix;
+            }
+            catch (Exception)
+            {
+                suggestionsWindow.Suggestions = null;
+                suggestionsWindow.Prefix = null;
             }
         }
 
@@ -85,8 +124,10 @@ namespace REPLPlugin.Windows
             {
                 sb.AppendLine($"> {inputField}");
                 var result = Evaluate(inputField);
-                if (result != null && !Equals(result, typeof(void)))
+                if (result != null && !Equals(result, VoidType.Value))
                     sb.AppendLine(result.ToString());
+
+                scrollPosition.y = float.MaxValue;
 
                 history.Add(inputField);
                 if (history.Count > HISTORY_LIMIT)
@@ -94,17 +135,37 @@ namespace REPLPlugin.Windows
                 historyPosition = 0;
 
                 inputField = string.Empty;
+                suggestionsWindow.Suggestions = null;
+                suggestionsWindow.Prefix = null;
+                Event.current.Use();
             }
 
             if (Event.current.isKey)
             {
-                if(Event.current.keyCode == KeyCode.UpArrow)
+                if (Event.current.keyCode == KeyCode.UpArrow)
+                {
                     FetchHistory(-1);
-                else if(Event.current.keyCode == KeyCode.DownArrow)
+                    Event.current.Use();
+                    suggestionsWindow.Suggestions = null;
+                    suggestionsWindow.Prefix = null;
+                }
+                else if (Event.current.keyCode == KeyCode.DownArrow)
+                {
                     FetchHistory(1);
-                else if(Event.current.keyCode == KeyCode.Tab)
-                    FetchSuggestions();
+                    Event.current.Use();
+                    suggestionsWindow.Suggestions = null;
+                    suggestionsWindow.Prefix = null;
+                }
             }
+
+            if (inputField != prevInputField)
+                FetchSuggestions();
+        }
+
+        private class VoidType
+        {
+            public static readonly VoidType Value = new VoidType();
+            private VoidType() { }
         }
     }
 }

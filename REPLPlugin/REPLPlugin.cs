@@ -8,12 +8,10 @@ namespace REPLPlugin
     public class REPLPlugin : BaseUnityPlugin
     {
         private readonly ConfigWrapper<KeyCode> enableKey = new ConfigWrapper<KeyCode>("EnableKey", KeyCode.Insert);
+        private REPLWindow replWindow;
         private bool showGui;
-        private REPLWindow replWindow = null;
 
-        private void Awake()
-        {
-        }
+        private void Awake() { }
 
         private void Update()
         {
