@@ -11,7 +11,10 @@ namespace REPLPlugin
         private REPLWindow replWindow;
         private bool showGui;
 
-        private void Awake() { }
+        private void Awake()
+        {
+            DontDestroyOnLoad(this);
+        }
 
         private void Update()
         {

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using BepInEx;
 using REPLPlugin.MCS;
 using UnityEngine;
 
@@ -28,7 +29,8 @@ namespace REPLPlugin.Windows
 
         public REPLWindow(int id) : base(id, "Unity REPL")
         {
-            evaluator = new ScriptEvaluator(new StringWriter(sb));
+            sb.AppendLine("Welcome to C# REPL! Enter \"help\" to get a list of common methods.");
+            evaluator = new ScriptEvaluator(new StringWriter(sb)) {InteractiveBaseClass = typeof(REPL)};
             suggestionsWindow = new SuggestionsWindow(1010);
             suggestionsWindow.SuggestionAccept += AcceptSuggestion;
             MinSize = new Vector2(MIN_WIDTH, MIN_HEIGHT);
@@ -159,7 +161,17 @@ namespace REPLPlugin.Windows
             }
 
             if (inputField != prevInputField)
-                FetchSuggestions();
+            {
+                if (inputField.Contains("typeof("))
+                {
+                    suggestionsWindow.Suggestions = null;
+                    suggestionsWindow.Prefix = null;
+                }
+                else
+                {
+                    FetchSuggestions();
+                }
+            }
         }
 
         private class VoidType

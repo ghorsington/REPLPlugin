@@ -17,7 +17,7 @@ namespace REPLPlugin.MCS
         {
             this.logger = logger;
 
-            ImportAppdomainAssemblies(ReferenceAssembly);
+            ImportAppdomainAssemblies(ReferenceAssembly);            
             AppDomain.CurrentDomain.AssemblyLoad += OnAssemblyLoad;
         }
 
@@ -43,7 +43,9 @@ namespace REPLPlugin.MCS
                     Version = LanguageVersion.Experimental,
                     GenerateDebugInfo = false,
                     StdLib = true,
-                    Target = Target.Library
+                    Target = Target.Library,
+                    WarningLevel = 0,
+                    EnhancedWarnings = false
             };
 
             return new CompilerContext(settings, reporter);
